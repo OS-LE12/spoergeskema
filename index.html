@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="da"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
-<meta name="build-id" content="bmw0bl8lauffq">
+<meta name="build-id" content="bmw0c5833h09v">
 <title>INTET FORSVAR UDEN FAGLÆRTE</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;touch-action:pan-x pan-y}
@@ -234,6 +234,7 @@ function scoreVals(){
   });
   return out;
 }
+function showN(){return SC.showCount===2?2:1}
 function calcR(){
   var vals=scoreVals();
   return SC.outcomes.map(function(o){
@@ -355,17 +356,16 @@ function renderScreenOut(c){
 function renderResult(c){
   if(qs.screened){renderScreenOut(c);return}
   var results=calcR().filter(function(r){return r.pct>0});
-  var html="<div style=\"font-size:calc(20px*var(--fs,1));font-weight:500;margin-bottom:4px\">Dine resultater</div>"
+  var html="<div style=\"font-size:calc(20px*var(--fs,1));font-weight:500;margin-bottom:4px\">"+(showN()===1?"Dit resultat":"Dine resultater")+"</div>"
     +"<div style=\"font-size:calc(14px*var(--fs,1));color:var(--t2);margin-bottom:1.5rem\">Baseret p\u00e5 dine svar</div>";
   if(!results.length){html+="<p style=\"color:var(--t2)\">Ingen matchende udfald.</p>"}
-  else{results.slice(0,2).forEach(function(r,i){
+  else{results.slice(0,showN()).forEach(function(r,i){
     html+="<div class=\"rcard"+(i===0?" top":"")+"\">";
     if(i===0)html+="<div class=\"badge ba\" style=\"margin-bottom:8px\">\u2605 Bedste match</div>";
     html+="<div style=\"font-size:calc(17px*var(--fs,1));font-weight:500;color:"+(i===0?"var(--tod)":"var(--t)")+";margin-bottom:4px\">"+esc(r.title)+"</div>";
     html+="<div style=\"font-size:calc(14px*var(--fs,1));color:"+(i===0?"var(--tod2)":"var(--t2)")+";line-height:1.6;margin-bottom:10px\">"+esc(r.desc)+"</div>";
     if(r.tags&&r.tags.length)html+="<div class=\"tags\">"+r.tags.map(function(t){return"<span class=\"tag\">"+esc(t)+"</span>"}).join("")+"</div>";
-    html+="<div class=\"sbg\" style=\"margin-top:10px\"><div class=\"sf\" style=\"width:"+r.pct+"%\"></div></div>";
-    html+="<div style=\"font-size:calc(12px*var(--fs,1));color:"+(i===0?"var(--fg)":"var(--t2)")+";margin-top:4px\">"+r.pct+"% match</div></div>";
+    html+="</div>";
   })}
   html+="<div class=\"send-box\"><h3>Dine svar er registreret</h3>"
     +"<p id=\"send-status\">Gemmer dine svar...</p>"
@@ -386,36 +386,49 @@ function renderResult(c){
 }
 function downloadJPG(){
   var results=calcR().filter(function(r){return r.pct>0});
-  var W=640,pad=36,rows=results.slice(0,2);
-  var H=64+48+(rows.length*96)+pad+20;
+  var rows=results.slice(0,showN());
+  var W=640,pad=36,maxW=W-pad*2-20;
+  var m=document.createElement("canvas").getContext("2d");
+  function wrap(text,font,max,maxLines){
+    m.font=font;
+    var words=String(text||"").split(/\s+/),lines=[],cur="";
+    words.forEach(function(w){
+      var t=cur?cur+" "+w:w;
+      if(cur&&m.measureText(t).width>max){lines.push(cur);cur=w}else cur=t;
+    });
+    if(cur)lines.push(cur);
+    if(lines.length>maxLines){lines=lines.slice(0,maxLines);lines[maxLines-1]=lines[maxLines-1].replace(/\s*\S*$/,"")+"\u2026"}
+    return lines;
+  }
+  var TF="500 15px system-ui,sans-serif",DF="13px system-ui,sans-serif";
+  var cards=rows.map(function(r,i){
+    var t=wrap(r.title,TF,maxW,2),d=wrap(r.desc,DF,maxW,4);
+    return{top:i===0,t:t,d:d,h:(i===0?36:14)+t.length*20+6+d.length*18+12};
+  });
+  var H=152+cards.reduce(function(n,c){return n+c.h+8},0)+pad;
   var canvas=document.createElement("canvas");canvas.width=W;canvas.height=H;
   var ctx=canvas.getContext("2d");
+  function rr(x,y,w,h,rad){ctx.beginPath();ctx.moveTo(x+rad,y);ctx.arcTo(x+w,y,x+w,y+h,rad);ctx.arcTo(x+w,y+h,x,y+h,rad);ctx.arcTo(x,y+h,x,y,rad);ctx.arcTo(x,y,x+w,y,rad);ctx.closePath();ctx.fill()}
   ctx.fillStyle="#EFECE4";ctx.fillRect(0,0,W,H);
   ctx.fillStyle="#333C35";ctx.fillRect(0,0,W,64);
   ctx.fillStyle="#EFECE4";ctx.font="500 16px system-ui,sans-serif";
   ctx.fillText(SC.title||"Sp\u00f8rgeskema",pad,36);
   ctx.fillStyle="#ABB892";ctx.font="13px system-ui,sans-serif";
-  ctx.fillText(qs.contact&&qs.contact.name?"Resultat for: "+qs.contact.name:"Dit resultat",pad,54);
+  ctx.fillText(qs.contact&&qs.contact.name?"Resultat for: "+qs.contact.name:(showN()===1?"Dit resultat":"Dine resultater"),pad,54);
   var y=64+36;
   ctx.fillStyle="#333127";ctx.font="500 20px system-ui,sans-serif";
-  ctx.fillText("Dine resultater",pad,y);y+=28;
+  ctx.fillText(showN()===1?"Dit resultat":"Dine resultater",pad,y);y+=28;
   ctx.fillStyle="#8a8d80";ctx.font="13px system-ui,sans-serif";
   ctx.fillText(new Date().toLocaleDateString("da-DK"),pad,y);y+=24;
-  rows.forEach(function(r,i){
-    var isTop=i===0,cH=80;
-    function rr(x,y,w,h,rad){ctx.beginPath();ctx.moveTo(x+rad,y);ctx.lineTo(x+w-rad,y);ctx.quadraticCurveTo(x+w,y,x+w,y+rad);ctx.lineTo(x+w,y+h-rad);ctx.quadraticCurveTo(x+w,y+h,x+w-rad,y+h);ctx.lineTo(x+rad,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-rad);ctx.lineTo(x,y+rad);ctx.quadraticCurveTo(x,y,x+rad,y);ctx.closePath();ctx.fill()}
-    ctx.fillStyle=isTop?"#333C35":"#F7F5EF";rr(pad,y,W-pad*2,cH,4);
-    if(isTop){ctx.fillStyle="#F0FE89";rr(pad+10,y+8,100,16,3);ctx.fillStyle="#252900";ctx.font="500 11px system-ui,sans-serif";ctx.fillText("\u2605 Bedste match",pad+16,y+20)}
-    ctx.fillStyle=isTop?"#EFECE4":"#333127";ctx.font="500 15px system-ui,sans-serif";
-    ctx.fillText(r.title,pad+10,y+(isTop?40:22));
-    ctx.fillStyle=isTop?"#ABB892":"#5a5d53";ctx.font="13px system-ui,sans-serif";
-    ctx.fillText((r.desc||"").slice(0,70),pad+10,y+(isTop?58:40));
-    var bY=y+cH-14,bW=W-pad*2-20;
-    ctx.fillStyle=isTop?"rgba(239,236,228,.2)":"rgba(51,49,39,.1)";rr(pad+10,bY,bW,5,2);
-    ctx.fillStyle=isTop?"#F0FE89":"#ABB892";rr(pad+10,bY,Math.round(bW*r.pct/100),5,2);
-    ctx.fillStyle=isTop?"#ABB892":"#8a8d80";ctx.font="11px system-ui,sans-serif";
-    ctx.fillText(r.pct+"% match",pad+10,bY+16);
-    y+=cH+8;
+  cards.forEach(function(c){
+    ctx.fillStyle=c.top?"#333C35":"#F7F5EF";rr(pad,y,W-pad*2,c.h,4);
+    if(c.top){ctx.fillStyle="#F0FE89";rr(pad+10,y+10,100,16,3);ctx.fillStyle="#252900";ctx.font="500 11px system-ui,sans-serif";ctx.fillText("\u2605 Bedste match",pad+16,y+22)}
+    var ty=y+(c.top?36:14);
+    ctx.fillStyle=c.top?"#EFECE4":"#333127";ctx.font=TF;
+    c.t.forEach(function(l,k){ctx.fillText(l,pad+10,ty+14+k*20)});
+    ctx.fillStyle=c.top?"#ABB892":"#5a5d53";ctx.font=DF;
+    c.d.forEach(function(l,k){ctx.fillText(l,pad+10,ty+c.t.length*20+6+14+k*18)});
+    y+=c.h+8;
   });
   var a=document.createElement("a");
   a.href=canvas.toDataURL("image/jpeg",0.95);
